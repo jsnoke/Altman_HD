@@ -67,102 +67,157 @@ computeBest = function(real, synth, numVar){
 #-------------------------
 #simulation study
 
-numSim = 25*4
-simulOut = matrix(NA, nrow = numSim, ncol = 7)
-colnames(simulOut) = c("PCMSE", "tradMSE", "PCWorst", "tradWorst", "PCUtil", "tradUtil", "numVar")
-
-
 ##real data
-numVar = c(5, 20, 50, 190)
 numObs = 100
-for(h in 1:length(numVar)){
-    for(q in 1:numSim/length(numVar)){
-        uDat = rnorm(numObs, mean = 5, sd = 3)
-        zDat = mvrnorm(n = numObs, mu = rep(0, numVar[h] ), Sigma = diag(2, numVar[h] ))
-        xDat = uDat + zDat
-        colnames(xDat) = paste("x", 1:numVar[h] , sep = "")
-        
-        ##synthetic by PC
-        synthX = vector("list", 5)
-        for(j in 1:5){
-            synthU = mean(xDat)
-            synthZ = matrix(NA, nrow = numObs, ncol = numVar[h] )
-            for(i in 1:numVar[h] ){
-                synthZ[, i] = rnorm(numObs, mean = mean(xDat[, i]) - synthU, sd = sd(xDat[, i]))
-            }
-            synthX[[j]] = synthU + synthZ
-            colnames(synthX[[j]]) = paste("x", 1:numVar[h] , sep = "")
+numVar = 50
+
+u = rnorm(numObs, mean = 2, sd = 1)
+b = mvrnorm(numObs, mu = rep(0, numVar), Sigma = diag(0.1, numVar))
+x = u + b
+
+## Risk
+newX = reconst(PCA(x, graph = F), ncp = 1)
+
+numMatch = function(syn, real, epsilon = 0.1){
+    matches = matrix(NA, nrow = nrow(real), ncol = nrow(syn))
+    for(i in 1:nrow(syn)){
+        for(j in 1:nrow(real)){
+            matches[j, i] = sum(abs(syn[i,] - real[j,]) < epsilon)
         }
-        
-        ##synthetic by PC actual
-        PC = PCA(xDat, scale.unit = F)
-        reconDat = reconst(PC, ncp = 1)
-        residDat = xDat - reconDat
-        
-        synSamp = matrix(NA, ncol = 5, nrow = numObs)
-        bootResid = vector("list", 5)
-        secondSamp = matrix(NA, ncol = 5, nrow = numObs)
-        secondResid = vector("list", 5)
-        synDat = vector("list", 5)
-        
-        for(i in 1:5){
-            synSamp[, i] = sample(1:numObs, 100, replace = T)
-            secondSamp[, i] = sample(1:numObs, 100, replace = T)
-            
-            bootResid[[i]] = matrix(NA, ncol = numVar[h], nrow = numObs)
-            secondResid[[i]] = matrix(NA, ncol = numVar[h], nrow = numObs)
-            for(j in 1:numObs){
-                bootResid[[i]][j, ] = residDat[synSamp[j,i], ] 
-                secondResid[[i]][j, ] = residDat[secondSamp[j,i], ] 
-            }
-            
-            temp = reconDat + bootResid[[i]]
-            tempPC = PCA(temp, scale.unit = F)
-            tempRecon = reconst(tempPC, ncp = 1)
-            
-            synDat[[i]] = tempRecon + secondResid[[i]]
-            colnames(synDat[[i]]) = paste("x", 1:numVar[h] , sep = "")
-            
-        }
-        
-        ##synthetic by traditional
-        tradSyn = syn(xDat, m = 5, method = "parametric")
-        
-        ##Risk - MSE
-        synthXC = rbind(synthX[[1]], synthX[[2]], synthX[[3]], synthX[[4]], synthX[[5]])
-        tradC = rbind(tradSyn$syn[[1]], tradSyn$syn[[2]], tradSyn$syn[[3]], tradSyn$syn[[4]], tradSyn$syn[[5]])
-        synXX = rbind(synDat[[1]], synDat[[2]], synDat[[3]], synDat[[4]], synDat[[5]])
-        
-        PCMSE = computeMSE(xDat, synthXC, numVar = numVar[h])
-        tradMSE = computeMSE(xDat, tradC, numVar = numVar[h])
-        PCAMSE = computeMSE(xDat, synXX, numVar = numVar[h])
-        
-        simulOut[q + (h-1)*25, "PCMSE"] = median(PCMSE, na.rm = T)
-        simulOut[q + (h-1)*25, "tradMSE"] = median(tradMSE, na.rm = T)
-        
-        ##Risk - Best
-        PCBest = computeBest(xDat, synthXC, numVar = numVar[h])
-        tradBest = computeBest(xDat, tradC, numVar = numVar[h])
-        PCABest = computeBest(xDat, synXX, numVar = numVar[h])
-        
-        simulOut[q + (h-1)*25, "PCWorst"] = median(PCBest, na.rm = T)
-        simulOut[q + (h-1)*25, "tradWorst"] = median(tradBest, na.rm = T)
-        
-        
-        ##Utility - Mean
-        pcUtilMSE = apply(synthXC, 2, var) + (colMeans(xDat) - colMeans(synthXC))^2
-        tradUtilMSE = apply(tradC, 2, var) + (colMeans(xDat) - colMeans(tradC))^2
-        PCAUtilMSE = apply(synXX, 2, var) + (colMeans(xDat) - colMeans(synXX))^2
-        
-        simulOut[q + (h-1)*25, "PCUtil"] = median(pcUtilMSE, na.rm = T)
-        simulOut[q + (h-1)*25, "tradUtil"] = median(tradUtilMSE, na.rm = T)
-        
-        ##record Var
-        simulOut[q + (h-1)*25, "numVar"] = numVar[h]
-    } 
+    }
+    
+    amount = matrix(NA, nrow = nrow(syn), ncol = 2)
+    for(i in 1:ncol(matches)){
+        amount[i, 1] = max(matches[, i])
+        amount[i, 2] = 1 / sum(matches[, i] == max(matches[, i]))
+    }
+    return(amount)
 }
 
+foo = numMatch(xE, x, 0.75)
+summary(foo)
+summary(foo[, 2] * (foo[, 1] / numVar) )
+
+distMatch = function(syn, real, epsilon = 0.1, method = "canberra"){
+    matches = matrix(NA, nrow = nrow(real), ncol = nrow(syn))
+    for(i in 1:nrow(syn)){
+        for(j in 1:nrow(real)){
+            matches[j, i] = dist(rbind(syn[i, ], real[j, ]), method = method) < epsilon
+        }
+    }
+    amount = matrix(NA, nrow = nrow(syn), ncol = 1)
+    for(i in 1:ncol(matches)){
+        amount[i, 1] = 1 / sum(matches[, i])
+    }
+    amount[amount == Inf] = 0
+    return(amount)
+}
+
+foo2 = distMatch(xE, x, epsilon = 10, method = "euclidean")
+summary(foo2)
+
+## noise
+xsvd = svd(x) 
+temp = rep(NA, 5)
+temp[1] = xsvd$d[1]
+for(i in 2:numVar){
+    temp[i] = xsvd$d[i] + rexp(1, rate = epsilon/xsvd$d[i])
+}
+xE = (xsvd$u %*% diag(temp) %*% t(xsvd$v))
+xEsvd = svd(xE)
+
+
+
+
+
+
+
+#####
+##synthetic by PC
+#####
+synthX = vector("list", 5)
+for(j in 1:5){
+    synthU = mean(xDat)
+    synthZ = matrix(NA, nrow = numObs, ncol = numVar[h] )
+    for(i in 1:numVar[h] ){
+        synthZ[, i] = rnorm(numObs, mean = mean(xDat[, i]) - synthU, sd = sd(xDat[, i]))
+    }
+    synthX[[j]] = synthU + synthZ
+    colnames(synthX[[j]]) = paste("x", 1:numVar[h] , sep = "")
+}
+
+##synthetic by PC actual
+PC = PCA(xDat, scale.unit = F)
+reconDat = reconst(PC, ncp = 1)
+residDat = xDat - reconDat
+
+synSamp = matrix(NA, ncol = 5, nrow = numObs)
+bootResid = vector("list", 5)
+secondSamp = matrix(NA, ncol = 5, nrow = numObs)
+secondResid = vector("list", 5)
+synDat = vector("list", 5)
+
+for(i in 1:5){
+    synSamp[, i] = sample(1:numObs, 100, replace = T)
+    secondSamp[, i] = sample(1:numObs, 100, replace = T)
+    
+    bootResid[[i]] = matrix(NA, ncol = numVar[h], nrow = numObs)
+    secondResid[[i]] = matrix(NA, ncol = numVar[h], nrow = numObs)
+    for(j in 1:numObs){
+        bootResid[[i]][j, ] = residDat[synSamp[j,i], ] 
+        secondResid[[i]][j, ] = residDat[secondSamp[j,i], ] 
+    }
+    
+    temp = reconDat + bootResid[[i]]
+    tempPC = PCA(temp, scale.unit = F)
+    tempRecon = reconst(tempPC, ncp = 1)
+    
+    synDat[[i]] = tempRecon + secondResid[[i]]
+    colnames(synDat[[i]]) = paste("x", 1:numVar[h] , sep = "")
+    
+}
+
+##synthetic by traditional
+tradSyn = syn(xDat, m = 5, method = "parametric")
+
+##Risk - MSE
+synthXC = rbind(synthX[[1]], synthX[[2]], synthX[[3]], synthX[[4]], synthX[[5]])
+tradC = rbind(tradSyn$syn[[1]], tradSyn$syn[[2]], tradSyn$syn[[3]], tradSyn$syn[[4]], tradSyn$syn[[5]])
+synXX = rbind(synDat[[1]], synDat[[2]], synDat[[3]], synDat[[4]], synDat[[5]])
+
+PCMSE = computeMSE(xDat, synthXC, numVar = numVar[h])
+tradMSE = computeMSE(xDat, tradC, numVar = numVar[h])
+PCAMSE = computeMSE(xDat, synXX, numVar = numVar[h])
+
+simulOut[q + (h-1)*25, "PCMSE"] = median(PCMSE, na.rm = T)
+simulOut[q + (h-1)*25, "tradMSE"] = median(tradMSE, na.rm = T)
+
+##Risk - Best
+PCBest = computeBest(xDat, synthXC, numVar = numVar[h])
+tradBest = computeBest(xDat, tradC, numVar = numVar[h])
+PCABest = computeBest(xDat, synXX, numVar = numVar[h])
+
+simulOut[q + (h-1)*25, "PCWorst"] = median(PCBest, na.rm = T)
+simulOut[q + (h-1)*25, "tradWorst"] = median(tradBest, na.rm = T)
+
+
+##Utility - Mean
+pcUtilMSE = apply(synthXC, 2, var) + (colMeans(xDat) - colMeans(synthXC))^2
+tradUtilMSE = apply(tradC, 2, var) + (colMeans(xDat) - colMeans(tradC))^2
+PCAUtilMSE = apply(synXX, 2, var) + (colMeans(xDat) - colMeans(synXX))^2
+
+simulOut[q + (h-1)*25, "PCUtil"] = median(pcUtilMSE, na.rm = T)
+simulOut[q + (h-1)*25, "tradUtil"] = median(tradUtilMSE, na.rm = T)
+
+##record Var
+simulOut[q + (h-1)*25, "numVar"] = numVar[h]
+
+
+
+
+#####
 ##Plots
+#####
 library(ggplot2)
 library(grid)
 library(reshape2)
@@ -193,3 +248,5 @@ print(worstPlot, vp = viewport(layout.pos.row = 2, layout.pos.col = 1) )
 print(utilPlot, vp = viewport(layout.pos.row = 3, layout.pos.col = 1) )
 
 utilPlot
+
+
