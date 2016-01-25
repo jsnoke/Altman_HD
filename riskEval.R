@@ -69,14 +69,28 @@ computeBest = function(real, synth, numVar){
 
 ##real data
 numObs = 100
-numVar = 5
+numVar = 25
 
 u = rnorm(numObs, mean = 2, sd = 1)
 b = mvrnorm(numObs, mu = rep(0, numVar), Sigma = diag(0.1, numVar))
 x = u + b
 
+
+## noise
+eps = 0.5
+xsvd = svd(x) 
+tempD = rep(NA, 5)
+tempU = matrix(NA, nrow = nrow(x), ncol = ncol(x))
+tempD[1] = xsvd$d[1]
+tempU[, 1] = xsvd$u[, 1]
+for(i in 2:numVar){
+    tempD[i] = xsvd$d[i] + rexp(1, rate = eps/xsvd$d[i])
+    tempU[, i] = xsvd$u[, i] + runif(1, min = -eps, max = eps)
+}
+xE = (tempU %*% diag(temp) %*% t(xsvd$v))
+
 ## Risk
-newX = reconst(PCA(x, graph = F), ncp = 1)
+#newX = reconst(PCA(x, graph = F), ncp = 1)
 
 numMatch = function(syn, real, epsilon = 0.1){
     matches = matrix(NA, nrow = nrow(real), ncol = nrow(syn))
@@ -94,20 +108,29 @@ numMatch = function(syn, real, epsilon = 0.1){
     return(amount)
 }
 
-foo = numMatch(xE, x, 2)
-foo = numMatch(xE, x[sample(1:100, 100, replace = T),], 2)
-summary(foo)
-summary(foo[, 2] * (foo[, 1] / numVar) )
+#foo = numMatch(xE, x, 2)
+#foo = numMatch(xE, x[sample(1:100, 100, replace = T),], 2)
+#summary(foo)
+#summary(foo[, 2] * (foo[, 1] / numVar) )
 
 ##plot over epsilons
-epsilon = seq(from = 0, to = 2, by = 0.1)
-plotfram = matrix(NA, nrow = length(epsilon), ncol = 4)
+epsilon = seq(from = 0, to = 10, by = 0.1)
+plotfram = matrix(NA, nrow = length(epsilon), ncol = 6)
 for(i in 1:length(epsilon)){
     foo = numMatch(xE, x, epsilon[i])
     boo = foo[, 2] * (foo[, 1] / numVar)
-    plotfram[i, ] = c(median(foo[, 2]), mean(foo[, 2]), median(boo), mean(boo))
+    plotfram[i, ] = c(median(foo[, 2]), mean(foo[, 2]), sum(foo[foo[, 2] == 1, 2]) / nrow(foo),
+                      median(boo), mean(boo), sum(boo[boo == 1]) / length(boo))
 }
+par(mfrow = c(2,3))
+plot(plotfram[, 1])
+plot(plotfram[, 2])
+plot(plotfram[, 3])
+plot(plotfram[, 4])
+plot(plotfram[, 5])
+plot(plotfram[, 6])
 
+##
 distMatch = function(syn, real, epsilon = 0.1, method = "canberra"){
     matches = matrix(NA, nrow = nrow(real), ncol = nrow(syn))
     for(i in 1:nrow(syn)){
@@ -123,33 +146,21 @@ distMatch = function(syn, real, epsilon = 0.1, method = "canberra"){
     return(amount)
 }
 
-foo2 = distMatch(xE, x, epsilon = 5, method = "canberra")
+foo2 = distMatch(xE, x, epsilon = 3, method = "canberra")
 summary(foo2)
+sum(foo2[foo2[,1] == 1])/nrow(foo2)
 
 ## plot
-epsilon2 = seq(from = 0, to = 10, by = 0.5)
-plotfram2 = matrix(NA, nrow = length(epsilon2), ncol = 2)
+epsilon2 = seq(from = 0, to = 100, by = 0.5)
+plotfram2 = matrix(NA, nrow = length(epsilon2), ncol = 3)
 for(i in 1:length(epsilon2)){
     foo2 = distMatch(xE, x, epsilon2[i], method = "canberra")
-    plotfram2[i, ] = c(median(foo2[, 1]), mean(foo2[, 1]))
+    plotfram2[i, ] = c(median(foo2[, 1]), mean(foo2[, 1]), sum(foo2[foo2[, 1] == 1]) / nrow(foo2))
 }
-plotfram2
-
-## noise
-eps = 1
-xsvd = svd(x) 
-temp = rep(NA, 5)
-temp[1] = xsvd$d[1]
-for(i in 2:numVar){
-    temp[i] = xsvd$d[i] + rexp(1, rate = eps/xsvd$d[i])
-}
-xE = (xsvd$u %*% diag(temp) %*% t(xsvd$v))
-
-
-
-
-
-
+par(mfrow = c(1,3))
+plot(plotfram2[, 1])
+plot(plotfram2[, 2])
+plot(plotfram2[, 3])
 
 #####
 ##synthetic by PC
@@ -230,9 +241,6 @@ simulOut[q + (h-1)*25, "tradUtil"] = median(tradUtilMSE, na.rm = T)
 
 ##record Var
 simulOut[q + (h-1)*25, "numVar"] = numVar[h]
-
-
-
 
 #####
 ##Plots
