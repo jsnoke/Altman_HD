@@ -31,8 +31,8 @@ empirRisk = function(syn, real){
     return(empiry)
 }
 
-test = empirRisk(xE, x)
-apply(test, 2, max)
+test = empirRisk(x, x)
+apply(test, 2, max)/colSums(test)
 
 
 ##simulation
