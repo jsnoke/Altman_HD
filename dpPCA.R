@@ -17,8 +17,12 @@ for(i in 1:ncol(y)){
     y[, i] = beta[1] + beta[2]*x + rnorm(numObs)
 }
 
+#####
+## Laplace Simulation
+#####
 d = c(2, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90,
       99, 100, 101, 200, 300, 400, 500, 600, 700, 800, 900, 1000)
+numSim = 100
 resultsR = vector("list", length(d))
 resultsE = vector("list", length(d))
 for(a in 1:length(d)){
@@ -29,14 +33,87 @@ for(a in 1:length(d)){
     resultsR[[a]] = matrix(NA, nrow = d[a], ncol = length(epsilon))
     resultsE[[a]] = matrix(NA, nrow = d[a], ncol = length(epsilon))
     for(b in 1:length(epsilon)){
+        loadsR = rep(NA, d[a])
+        loadsE = rep(NA, d[a])
         for(i in 1:ncol(DF)){
             DFE[, i] = DF[, i] + rlaplace(numObs, 0, (3*d[a]) / epsilon[b] )
         }
         boo = PCA(DF, graph = F)
         foo = PCA(DFE, graph = F)
         
-        resultsR[[a]][, b] = dimdesc(boo, axes = 1, proba = 0.05)$Dim.1$quanti[, 1]
-        resultsE[[a]][, b] = dimdesc(foo, axes = 1, proba = 1)$Dim.1$quanti[, 1]
+        loadsR = dimdesc(boo, axes = 1, proba = 0.05)$Dim.1$quanti[, 1]
+        loadsE = dimdesc(foo, axes = 1, proba = 1)$Dim.1$quanti[, 1]
+        for(c in 2:numSim){
+            for(i in 1:ncol(DF)){
+                DFE[, i] = DF[, i] + rlaplace(numObs, 0, (3*d[a]) / epsilon[b] )
+            }
+            
+            foo = PCA(DFE, graph = F)
+            
+            loadsE = (loadsE * (c - 1) + dimdesc(foo, axes = 1, proba = 1)$Dim.1$quanti[, 1]) / c
+        }
+        
+        resultsR[[a]][, b] = loadsR
+        resultsE[[a]][, b] = loadsE
+        
+        cat(b)
+    }
+    cat(a, "\n")
+}
+
+#boxplot(c(resultsR[[c]]))
+#boxplot(c(resultsE[[c]]))
+
+par(mfcol = c(2, 6))
+for(c in 17:22){
+    plot(epsilon, colMeans(resultsR[[c]]), type = "b", main = paste("dim =", d[c]),
+         ylab = "mean correlation with factor")
+    plot(epsilon, colMeans(resultsE[[c]]), type = "b", main = paste("dim =", d[c]),
+         ylab = "mean correlation with factor")
+}
+
+
+#factanal(DF, 1)
+#factanal(DFE, 1)
+
+#####
+## Gaussian Simulation
+#####
+d = c(2, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90,
+      99, 100, 101, 200, 300, 400, 500, 600, 700, 800, 900, 1000)
+numSim = 100
+resultsR = vector("list", length(d))
+resultsE = vector("list", length(d))
+for(a in 1:length(d)){
+    DF = y[ , 1:d[a]]
+    DFE = DF
+    
+    epsilon = seq(0.01, 1, 0.09)
+    resultsR[[a]] = matrix(NA, nrow = d[a], ncol = length(epsilon))
+    resultsE[[a]] = matrix(NA, nrow = d[a], ncol = length(epsilon))
+    for(b in 1:length(epsilon)){
+        loadsR = rep(NA, d[a])
+        loadsE = rep(NA, d[a])
+        for(i in 1:ncol(DF)){
+            DFE[, i] = DF[, i] + rnorm(numObs, 0, (10.5 * sqrt(d[a])) / epsilon[b] )
+        }
+        boo = PCA(DF, graph = F)
+        foo = PCA(DFE, graph = F)
+        
+        loadsR = dimdesc(boo, axes = 1, proba = 0.05)$Dim.1$quanti[, 1]
+        loadsE = dimdesc(foo, axes = 1, proba = 1)$Dim.1$quanti[, 1]
+        for(c in 2:numSim){
+            for(i in 1:ncol(DF)){
+                DFE[, i] = DF[, i] + rnorm(numObs, 0, (10.5 * sqrt(d[a])) / epsilon[b] )
+            }
+            
+            foo = PCA(DFE, graph = F)
+            
+            loadsE = (loadsE * (c - 1) + dimdesc(foo, axes = 1, proba = 1)$Dim.1$quanti[, 1]) / c
+        }
+        
+        resultsR[[a]][, b] = loadsR
+        resultsE[[a]][, b] = loadsE
         
         cat(b)
     }
@@ -45,15 +122,92 @@ for(a in 1:length(d)){
 
 par(mfcol = c(2, 5))
 for(c in 1:5){
-    boxplot(c(resultsR[[c]]))
-    boxplot(c(resultsE[[c]]))
+    plot(epsilon, colMeans(resultsR[[c]]), type = "b", main = paste("dim =", d[c]),
+         ylab = "mean correlation with factor")
+    plot(epsilon, colMeans(resultsE[[c]]), type = "b", main = paste("dim =", d[c]),
+         ylab = "mean correlation with factor")
 }
 
+#####
+## Decomp Simulation
+#####
+x = mvrnorm(numObs, mu = rep(2, 2), Sigma = matrix(c(1, 0, 0, 1), nrow = 2) )
+y = matrix(NA, nrow = numObs, ncol = numVar)
+for(i in 1:ncol(y)){
+    if(runif(1) > 0.5)
+        y[, i] = beta[1] + beta[2]*x[, 1] + rnorm(numObs)
+    else
+        y[, i] = beta[2] + beta[1]*x[, 2] + rnorm(numObs)
+}
 
+d = c(2, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90,
+      99, 100, 101, 200, 300, 400, 500, 600, 700, 800, 900, 1000)
+numSim = 10
+resultsR = vector("list", length(d))
+resultsE = vector("list", length(d))
+for(a in 1:length(d)){
+    DF = y[ , 1:d[a]]
+    origSVD = svd(DF)
+    gsU = c(sqrt(numObs) * 3 * sqrt(d[a]) / (origSVD$d[1] - origSVD$d[2]))
+    gsLam = sqrt(1) * 3 * sqrt(d[a])
+    
+    epsilon = seq(0.01, 1, 0.09)
+    resultsR[[a]] = matrix(NA, nrow = d[a], ncol = length(epsilon))
+    resultsE[[a]] = matrix(NA, nrow = d[a], ncol = length(epsilon))
+    for(b in 1:length(epsilon)){
+        loadsR = rep(NA, d[a])
+        loadsE = rep(NA, d[a])
+        
+        noiseU = matrix(NA, nrow = numObs, ncol = 2)
+        noiseLam = rep(NA, 2)
+        for(i in 1:2){
+            noiseU[, i] = origSVD$u[, i, drop = F] + rlaplace(numObs, scale = gsU / epsilon[b] )
+            noiseLam[i] = origSVD$d[i] + rlaplace(1, scale = gsLam / epsilon[b] )
+        }
+        tmp = qr(noiseU)
+        orthU = qr.Q(tmp, complete = FALSE)
+        
+        DFE = orthU %*% diag(noiseLam, 2) %*% origSVD$v[1:2, ]
+        
+        foo = PCA(DFE, graph = F)
+        boo = PCA(DF, graph = F)
+        loadsR = c(dimdesc(boo, axes = 1, proba = 1)$Dim.1$quanti[, 1],
+                   dimdesc(boo, axes = 1:2, proba = 1)$Dim.2$quanti[, 1])
+        loadsE = c(dimdesc(foo, axes = 1, proba = 1)$Dim.1$quanti[, 1],
+                   dimdesc(foo, axes = 1:2, proba = 1)$Dim.2$quanti[, 1])
+        
+        for(c in 2:numSim){
+            noiseU = matrix(NA, nrow = numObs, ncol = 2)
+            noiseLam = rep(NA, 2)
+            for(i in 1:2){
+                noiseU[, i] = origSVD$u[, i, drop = F] + rlaplace(numObs, scale = gsU / epsilon[b] )
+                noiseLam[i] = origSVD$d[i] + rlaplace(1, scale = gsLam / epsilon[b] )
+            }
+            tmp = qr(noiseU)
+            orthU = qr.Q(tmp, complete = FALSE)
+        
+            DFE = orthU %*% diag(noiseLam, 2) %*% origSVD$v[1:2, ]
 
+            foo = PCA(DFE, graph = F)
+            loadsE = (loadsE * (c - 1) + dimdesc(foo, axes = 1, proba = 1)$Dim.1$quanti[, 1]) / c
+        }
+        
+        
+        resultsR[[a]][, b] = loadsR
+        resultsE[[a]][, b] = loadsE
+        
+        cat(b)
+    }
+    cat(a, "\n")
+}
 
-#factanal(DF, 1)
-#factanal(DFE, 1)
+par(mfcol = c(2, 6))
+for(c in 1:6){
+    plot(epsilon, colMeans(resultsR[[c]]), type = "b", main = paste("dim =", d[c]),
+         ylab = "mean correlation with factor")
+    plot(epsilon, colMeans(resultsE[[c]]), type = "b", main = paste("dim =", d[c]),
+         ylab = "mean correlation with factor")
+}
 
 
 #####
