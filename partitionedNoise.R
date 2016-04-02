@@ -3,47 +3,49 @@ library(VGAM)
 library(FactoMineR)
 
 #####
-# ignore
-#####
-x = mvrnorm(100, mu = rep(0, 6), Sigma = diag(1, 6))
-temp = qr(x)
-orthX = qr.Q(temp, complete = FALSE)
-
-x1 = orthX[, 1:3]
-x2 = orthX[, 4:6]
-
-x1E = x1 + x1 %*% mvrnorm(3, mu = rep(0, 3), Sigma = diag(1, 3))
-
-x2E = x2 + x2 %*% mvrnorm(3, mu = rep(0, 3), Sigma = diag(1, 3))
-
-xsvd = svd(x)
-hist(x -  xsvd$u[, 1:2, drop = F] %*% diag(xsvd$d, 2) %*% t(xsvd$v[, 1:2]))
-
-rx1 = xsvd$u[, 1, drop = F] %*% diag(xsvd$d, 1) %*% t(xsvd$v[, 1])
-rx2 = xsvd$u[, 2:6, drop = F] %*% diag(xsvd$d, 5) %*% t(xsvd$v[, 2:6])
-
-foo = PCA(x, graph = F)
-
-#####
 ## setup
 #####
 numObs = 100
 numVar = 1000
 
 ## create data k = 2 
-x = mvrnorm(numVar, mu = rep(2, 2), Sigma = matrix(c(3, 0, 0, 3), nrow = 2) )
-tmp = qr(x)
-orthX = qr.Q(tmp, complete=FALSE)
-xD = diag(c(10, 5), 2)
-xSig = orthX %*% xD %*% t(orthX)
-y = mvrnorm(numObs, mu = rep(0, 1000), Sigma = xSig)
+u = mvrnorm(numObs, mu = rep(0, 2), Sigma = matrix(c(1, 0, 0, 1), nrow = 2) )
+tmp = qr(u)
+orthU = qr.Q(tmp, complete=FALSE)
 
-fullFac = PCA(y, graph = F)
-fullFac2 = dimdesc(fullFac, axes = 1:2, proba = 1)
-hist(abs(fullFac2$Dim.1$quanti[,1]))
-hist(abs(fullFac2$Dim.2$quanti[,1]))
-orderY = as.numeric(sub("V", "", row.names(fullFac2$Dim.1$quanti)))
-newY = y[, orderY]
+v = mvrnorm(numVar, mu = rep(0, 2), Sigma = matrix(c(1, 0, 0, 1), nrow = 2) )
+tmp = qr(v)
+orthV = qr.Q(tmp, complete=FALSE)
+
+xD = diag(c(4, 3), 2)
+
+#xSig = orthX %*% xD %*% t(orthX)
+y = orthU %*% xD %*% t(orthV)
+y = y + mvrnorm(numObs, mu = rep(0, numVar), Sigma = diag(mean(diag(cov(y)))/2, numVar))
+#test = svd(y)
+#y = mvrnorm(numObs, mu = rep(0, 1000), Sigma = xSig) + 
+#    mvrnorm(numObs, mu = rep(0, 1000), Sigma = diag(mean(diag(xSig)), numVar))
+
+rSqs = rep(NA, numVar)
+for(a in 1:numVar){
+    rSqs[a] = summary(lm(y[,a] ~ orthU))$adj.r.squared
+}
+summary(rSqs)
+
+#fullFac = PCA(y, graph = F)
+#fullFac2 = dimdesc(fullFac, axes = 1:2, proba = 1)
+#hist(abs(fullFac2$Dim.1$quanti[,1]))
+#hist(abs(fullFac2$Dim.2$quanti[,1]))
+
+#foobar = cbind(abs(fullFac2$Dim.1$quanti[order(rownames(fullFac2$Dim.1$quanti)), 1]),
+#           abs(fullFac2$Dim.2$quanti[order(rownames(fullFac2$Dim.2$quanti)), 1]))
+#foobar = foobar[order(rowMeans(foobar), decreasing = T), ]
+#View(foobar)
+
+#orderY = as.numeric(sub("V", "", row.names(foobar)))
+#orderY = as.numeric(sub("V", "", row.names(fullFac2$Dim.1$quanti)))
+#newY = y[, orderY]
+newY = y[, order(rSqs, decreasing = T)]
 
 #####
 ## newest sims
@@ -61,6 +63,7 @@ for(c in 1:length(p)){
     outList[[c]] = vector("list", length(epsilon))
     
     DF = scale(newY[, 1:p[c]])
+    #DF = scale(newY[, sample(1:1000, p[c])])
     d = min(p[c], numObs)
     xsvd = svd(DF)
     resid = DF - xsvd$u[, 1:k] %*% diag(xsvd$d[1:k], k) %*% t(xsvd$v[, 1:k])
@@ -85,8 +88,9 @@ for(c in 1:length(p)){
             newU = newU %*% c2
             
             DFE = scale(newU %*% diag(newD, k) %*% t(xsvd$v[, 1:2])) + resid[sample(1:numObs, numObs),]
+            DFE = scale(newU %*% diag(newD, k) %*% t(xsvd$v[, 1:2]))
             
-            boo = PCA(DF, graph = F)
+            boo = PCA(DF, graph = T)
             foo = PCA(DFE, graph = F)
             
             outList[[c]][[b]][(1 + (n - 1) * p[c]):((n) * p[c]), 1:4] = cbind(
@@ -204,7 +208,7 @@ for(c in 1:10){
     }
 }
 
-par(mfrow = c(2, 2))
+par(mfrow = c(1, 2))
 plot(results2Mu1[,1], ylim = range(results2Mu1), type = "b", col = 1)
 for(a in 2:6){
     lines(results2Mu1[, a], type = "b", col = a)
@@ -279,6 +283,73 @@ for(a in 2:6){
 plot(results3Sd2[,1], ylim = range(results3Sd2), type = "b")
 for(a in 2:6){
     lines(results3Sd2[, a], type = "b")
+}
+
+#####
+## all plot together
+#####
+par(mfrow = c(3, 2))
+
+plot(resultsMu1[,1], ylim = range(c(resultsMu1, results2Mu1, results3Mu1)), type = "b", col = 1)
+for(a in 4:6){
+    lines(resultsMu1[, a], type = "b", col = a)
+}
+
+plot(resultsMu2[,1], ylim = range(c(resultsMu2, results2Mu2, results3Mu2)), type = "b", col = 1)
+for(a in 4:6){
+    lines(resultsMu2[, a], type = "b", col = a)
+}
+
+plot(results2Mu1[,1], ylim = range(c(resultsMu1, results2Mu1, results3Mu1)), type = "b", col = 1)
+for(a in 4:6){
+    lines(results2Mu1[, a], type = "b", col = a)
+}
+
+plot(results2Mu2[,1], ylim = range(c(resultsMu2, results2Mu2, results3Mu2)), type = "b", col = 1)
+for(a in 4:6){
+    lines(results2Mu2[, a], type = "b", col = a)
+}
+
+plot(results3Mu1[,1], ylim = range(c(resultsMu1, results2Mu1, results3Mu1)), type = "b")
+for(a in 4:6){
+    lines(results3Mu1[, a], type = "b", col = a)
+}
+
+plot(results3Mu2[,1], ylim = range(c(resultsMu2, results2Mu2, results3Mu2)), type = "b")
+for(a in 4:6){
+    lines(results3Mu2[, a], type = "b", col = a)
+}
+
+par(mfrow = c(3, 2))
+
+plot(resultsSd1[,1], ylim = range(c(resultsSd1, results2Sd1, results3Sd1)), type = "b", col = 1)
+for(a in 4:6){
+    lines(resultsSd1[, a], type = "b", col = a)
+}
+
+plot(resultsSd2[,1], ylim = range(c(resultsSd2, results2Sd2, results3Sd2)), type = "b", col = 1)
+for(a in 4:6){
+    lines(resultsSd2[, a], type = "b", col = a)
+}
+
+plot(results2Sd1[,1], ylim = range(c(resultsSd1, results2Sd1, results3Sd1)), type = "b", col = 1)
+for(a in 4:6){
+    lines(results2Sd1[, a], type = "b", col = a)
+}
+
+plot(results2Sd2[,1], ylim = range(c(resultsSd2, results2Sd2, results3Sd2)), type = "b", col = 1)
+for(a in 4:6){
+    lines(results2Sd2[, a], type = "b", col = a)
+}
+
+plot(results3Sd1[,1], ylim = range(c(resultsSd1, results2Sd1, results3Sd1)), type = "b")
+for(a in 4:6){
+    lines(results3Sd1[, a], type = "b", col = a)
+}
+
+plot(results3Sd2[,1], ylim = range(c(resultsSd2, results2Sd2, results3Sd2)), type = "b")
+for(a in 4:6){
+    lines(results3Sd2[, a], type = "b", col = a)
 }
 
 
