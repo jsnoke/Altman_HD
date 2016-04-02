@@ -17,7 +17,7 @@ v = mvrnorm(numVar, mu = rep(0, 2), Sigma = matrix(c(1, 0, 0, 1), nrow = 2) )
 tmp = qr(v)
 orthV = qr.Q(tmp, complete=FALSE)
 
-xD = diag(c(4, 3), 2)
+xD = diag(c(4, 2), 2)
 
 #xSig = orthX %*% xD %*% t(orthX)
 y = orthU %*% xD %*% t(orthV)
@@ -352,7 +352,9 @@ for(a in 4:6){
     lines(results3Sd2[, a], type = "b", col = a)
 }
 
-
+#####
+## 
+#####
 
 #####
 ## just add noise and re-orth
