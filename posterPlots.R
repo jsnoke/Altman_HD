@@ -1,3 +1,6 @@
+#####
+## risk plots
+#####
 load("~/Documents/Altman_HD/R/miNoise4.RData")
 load("~/Documents/Altman_HD/R/partNoise4.RData")
 load("~/Documents/Altman_HD/R/noErr4.RData")
@@ -57,6 +60,57 @@ print(pp3, vp = viewport(layout.pos.row = 2, layout.pos.col = 1) )
 print(pp4, vp = viewport(layout.pos.row = 2, layout.pos.col = 2) )
 
 
+#####
+## syn plots
+#####
+
+load("~/Documents/Altman_HD/R/noHigh.RData")
+
+resultsMu1 = matrix(NA, ncol = 6, nrow = 2*1000)
+resultsMu2 = matrix(NA, ncol = 6, nrow = 2*1000)
+#resultsSd1 = matrix(NA, ncol = 6, nrow = 2*1000)
+#resultsSd2 = matrix(NA, ncol = 6, nrow = 2*1000)
+for(c in 1:2){
+    for(b in 1:6){
+        #resultsMu1[c, b] = 0
+        #resultsMu2[c, b] = 0
+        #resultsSd1[c, b] = 0
+        #resultsSd2[c, b] = 0
+        for(a in 1:1000){
+            hold = test[a, b][[1]]
+            resultsMu1[(a + (c - 1) * 1000), b] = mean(abs(hold[, 1] - hold[, (1 + c * 2)]))
+            #resultsMu1[c, b] = (mean(abs(hold[, 1] - hold[, (1 + c * 2)])) + resultsMu1[c, b] * (a - 1)) / a
+            resultsMu2[(a + (c - 1) * 1000), b] = mean(abs(hold[, 2] - hold[, (2 + c * 2)]))
+            #resultsMu2[c, b] = (mean(abs(hold[, 2] - hold[, (2 + c * 2)])) + resultsMu2[c, b] * (a - 1)) / a
+            
+            #resultsSd1[c, b] = (sd(abs(hold[, 1] - hold[, (1 + c * 2)])) + resultsSd1[c, b] * (a - 1)) / a
+            
+            #resultsSd2[c, b] = (sd(abs(hold[, 2] - hold[, (2 + c * 2)])) + resultsSd2[c, b] * (a - 1)) / a
+        }
+    }
+}
+
+library(ggplot2)
+library(grid)
+
+plotDF = data.frame(matrix(NA, nrow = 2000*6, ncol = 4))
+colnames(plotDF) = c("Factor1", "Factor2", "Synthesis", "p")
+
+plotDF[, "Factor1"] = c(resultsMu1)
+plotDF[, "Factor2"] = c(resultsMu2)
+plotDF[, "Synthesis"] = rep(rep(c("Traditional Synthesis", "SVD Synthesis"), each = 1000), 6)
+plotDF[, "p"] = rep(p, each = 2000)
 
 
+p1 = ggplot(data = plotDF, aes(x = p, y = Factor1, color = Synthesis)) + 
+    ylab("Mean Absolute Loadings Difference") + stat_smooth(method = "lm")
+p1
+p2 = ggplot(data = plotDF, aes(x = p, y = Factor2, color = Synthesis)) + 
+    ylab("Mean Absolute Loadings Difference") + stat_smooth(method = "lm")
+p2
+
+grid.newpage()
+pushViewport(viewport(layout = grid.layout(1, 2)))
+print(p1, vp = viewport(layout.pos.row = 1, layout.pos.col = 1) )
+print(p2, vp = viewport(layout.pos.row = 1, layout.pos.col = 2) )
 
