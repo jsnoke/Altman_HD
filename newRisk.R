@@ -149,16 +149,20 @@ for(cc in 1:length(p)){
 
 totMatch = matrix(NA, nrow = 100, ncol = 6)
 summaryMatch = matrix(NA, nrow = 100, ncol = 6)
+totMatch01 = matrix(NA, nrow = 100, ncol = 6)
+summaryMatch01 = matrix(NA, nrow = 100, ncol = 6)
+totMatch05 = matrix(NA, nrow = 100, ncol = 6)
+summaryMatch05 = matrix(NA, nrow = 100, ncol = 6)
 
 for(a in 1:6){
     for(b in 1:100){
-        totMatch[b, a] = mean(matchesS[[a]][[b]][ , 1])
-        summaryMatch[b, a] = mean(matchesS[[a]][[b]][ , 2])
+        totMatch01[b, a] = mean(matchesS[[a]][[b]][ , 1])
+        summaryMatch01[b, a] = mean(matchesS[[a]][[b]][ , 2])
     }
 }
 
-
-
+nonHighRisk = list(totMatch, totMatch01, totMatch05, summaryMatch, summaryMatch01, summaryMatch05)
+save(nonHighRisk, file = "nonHighRisk.RData")
 
 
 
